@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request
-from database.client import CLIENTS
+from database.models.client import Client
 
 client_route = Blueprint("client", __name__)
 
@@ -7,7 +7,8 @@ client_route = Blueprint("client", __name__)
 @client_route.route("/")
 def list_clients():
     """listar todos os clients"""
-    return render_template("list_clients.html", clients=CLIENTS)
+    clients = Client.select()
+    return render_template("list_clients.html", clients=clients)
 
 
 @client_route.route("/", methods=["POST"])
@@ -15,9 +16,7 @@ def insert_client():
     """inserir dados do client"""
     data = request.json
 
-    new_user = {"id": len(CLIENTS) + 1, "name": data["name"], "email": data["email"]}
-
-    CLIENTS.append(new_user)
+    new_user = Client.create(name=data["name"], email=data["email"])
 
     return render_template("client_item.html", client=new_user)
 
@@ -31,17 +30,14 @@ def client_form():
 @client_route.route("/<int:client_id>")
 def detail_client(client_id):
 
-    client = list(filter(lambda c: c['id'] == client_id, CLIENTS))[0]
+    client = Client.get_by_id(client_id)
     return render_template("detail_client.html", client=client)
 
 
 @client_route.route("/<int:client_id>/edit")
 def edit_client_form(client_id):
 
-    client = None
-    for c in CLIENTS:
-        if c["id"] == client_id:
-            client = c
+    client = Client.get_by_id(client_id)
 
     return render_template("client_form.html", client=client)
 
@@ -50,23 +46,21 @@ def edit_client_form(client_id):
 def update_client(client_id):
     """update client"""
 
-    client = None
     data = request.json
 
-    for c in CLIENTS:
-        if c["id"] == client_id:
-            c["name"] = data['name']
-            c["email"] = data['email']
+    updated_client = Client.get_by_id(client_id)
 
-            updated_client = c
+    updated_client.name = data["name"]
+    updated_client.email = data["email"]
+    updated_client.save()
 
-    return render_template('client_item.html', client=updated_client)
+    return render_template("client_item.html", client=updated_client)
 
 
 @client_route.route("/<int:client_id>/delete", methods=["DELETE"])
 def delete(client_id):
     """delete client"""
-    global CLIENTS
-    CLIENTS = [c for c in CLIENTS if c["id"] != client_id]
+    client = Client.get_by_id(client_id)
+    client.delete_instance()
 
     return {"deleted": "ok"}
